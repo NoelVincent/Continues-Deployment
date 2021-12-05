@@ -1,0 +1,115 @@
+---
+- name: "Docker Image/Build and Image/Push"
+  hosts: build
+  become: true
+  vars:
+    repo_url: "https://github.com/NoelVincent/Continues-Deployment.git"
+    repo_dest: "/var/repository/"
+    image_name: "noelvincent/flaskapp"
+    docker_password: "************" ###===> Your password
+  tasks:
+    
+    - name: "Build-Setp - Docker Installation"
+      shell: 'amazon-linux-extras install docker -y'
+      args:
+       warn: no
+ 
+    - name: "Build-Setp - Additional package Installation"
+      yum:
+        name: git,python-pip
+        state: present
+
+
+    - name: "Build-Setp - python docker extension installation"
+      pip:
+        name: docker-py
+
+    - name: "Build-Setp - Docker service restart/enable"
+      service:
+        name: docker
+        state: restarted
+        enabled: true
+
+    - name: "Build-Setp - Cloning Repository"
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ repo_dest }}"
+      register: repo_status
+
+
+
+    - name: "Build-Setp - Login to remote Repository"
+      when: repo_status.changed == true
+      docker_login:
+        username: noelvincent
+        password: "{{ docker_password }}"
+
+            
+            
+    - name: "Build-Setp - Building image"
+      when: repo_status.changed == true
+      docker_image:
+        source: build
+        build:
+          path: "{{ repo_dest }}"
+          pull: yes
+        name: "{{ image_name }}"
+        tag: "{{ item }}"
+        push: true
+        force_tag: yes
+        force_source: yes
+      with_items:
+        - "{{ repo_status.after }}"
+        - latest
+    
+
+    - name: "Build-Setp - removing image"
+      when: repo_status.changed == true
+      docker_image:
+        state: absent
+        name: "{{ image_name }}"
+        tag: "{{ item }}"
+      with_items:
+        - "{{ repo_status.after }}"
+        - latest
+
+
+
+- name: "Docker Run Container"
+  hosts: test
+  become: true
+  vars:
+    image_name: "noelvincent/flaskapp"
+    
+  tasks:
+    
+    - name: "Deployment - Docker Installation"
+      shell: 'amazon-linux-extras install docker -y'
+      args:
+        warn: no
+
+            
+    - name: "Deployment - Additional package Installation"
+      yum:
+        name: python-pip
+        state: present
+
+
+    - name: "Deployment - python docker extension installation"
+      pip:
+        name: docker-py
+
+    - name: "Deployment - Docker service restart/enable"
+      service:
+        name: docker
+        state: restarted
+        enabled: true
+
+    - name: "Deployment - Run Container"
+      docker_container:
+        name: webserver
+        image: "{{ image_name }}:latest"
+        recreate: yes
+        pull: yes
+        published_ports:
+          - "80:5000"

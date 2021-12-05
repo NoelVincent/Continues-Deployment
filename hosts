@@ -1,0 +1,5 @@
+[build]
+3.110.195.38 ansible_user="ec2-user"
+
+[test]
+35.154.48.153 ansible_user="ec2-user"
