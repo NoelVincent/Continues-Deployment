@@ -4,7 +4,7 @@ RUN  mkdir /tmp/pro-flask/
 
 WORKDIR /tmp/pro-flask/
 
-COPY .  .
+COPY ./project/  .
 
 RUN apk update && apk add --no-cache python3 && apk add --no-cache py-pip
 
